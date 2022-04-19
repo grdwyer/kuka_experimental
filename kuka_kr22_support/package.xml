@@ -17,7 +17,7 @@
     <p>
       Joint limits and maximum joint velocities are based on the information
       in the <em>KUKA Roboter GmbH - KR 22 Specification</em> version
-      <em>Datasheet KR 22 R1610, 12.04.2022</em>.
+      <em>Datasheet KR 22 R1610-2, 12.00000-261-981 / V47.1 / 01.02.2021 </em>.
       All urdfs are based on the default motion and joint velocity limits,
       unless noted otherwise (ie: no support for high speed joints,
       extended / limited motion ranges or other options).
