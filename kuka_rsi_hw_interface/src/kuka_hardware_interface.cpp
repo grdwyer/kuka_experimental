@@ -280,6 +280,7 @@ hardware_interface::return_type KukaHardwareInterface::write(const rclcpp::Time 
   return hardware_interface::return_type::OK;
 }
 
+} // namespace kuka_rsi_hw_interface
 
-
-} // namespace kuka_rsi_hardware_interface
+#include "pluginlib/class_list_macros.hpp"  // NOLINT
+PLUGINLIB_EXPORT_CLASS(kuka_rsi_hw_interface::KukaHardwareInterface, hardware_interface::SystemInterface)

@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:macro name="kr_60_position" params="name robot_ip robot_port hardware:=false linear_rail:=false">
+
+        <ros2_control name="${name}" type="system">
+            <hardware>
+                <xacro:if value="${hardware}">
+                    <plugin>kuka_rsi_hw_interface/KukaHardwareInterface</plugin>
+                    <param name="robot_ip">${robot_ip}</param>
+                    <param name="robot_port">${robot_port}</param>
+                </xacro:if>
+                <xacro:unless value="${hardware}">
+                    <plugin>mock_components/GenericSystem</plugin>
+                </xacro:unless>
+            </hardware>
+            <joint name="joint_a1">
+                <command_interface name="position">
+                    <param name="min">{-169 * PI / 180}</param>
+                    <param name="max">{169 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <joint name="joint_a2">
+                <command_interface name="position">
+                    <param name="min">{-119 * PI / 180}</param>
+                    <param name="max">{119 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <joint name="joint_a3">
+                <command_interface name="position">
+                    <param name="min">{-169 * PI / 180}</param>
+                    <param name="max">{169 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <joint name="joint_a4">
+                <command_interface name="position">
+                    <param name="min">{-119 * PI / 180}</param>
+                    <param name="max">{119 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <joint name="joint_a5">
+                <command_interface name="position">
+                    <param name="min">{-169 * PI / 180}</param>
+                    <param name="max">{169 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <joint name="joint_a6">
+                <command_interface name="position">
+                    <param name="min">{-119 * PI / 180}</param>
+                    <param name="max">{119 * PI / 180}</param>
+                </command_interface>
+                <state_interface name="position">
+                    <!-- initial position for the FakeSystem and simulation -->
+                    <param name="initial_value">0.0</param>
+                </state_interface>
+                <state_interface name="velocity"/>
+                <state_interface name="effort"/>
+            </joint>
+            <xacro:if value="${linear_rail}">
+                <joint name="joint_e1">
+                    <command_interface name="position">
+                        <param name="min">0.0</param>
+                        <param name="max">4.3</param>
+                    </command_interface>
+                    <state_interface name="position">
+                        <!-- initial position for the FakeSystem and simulation -->
+                        <param name="initial_value">0.0</param>
+                    </state_interface>
+                    <state_interface name="velocity"/>
+                    <state_interface name="effort"/>
+                </joint>
+            </xacro:if>
+        </ros2_control>
+    </xacro:macro>
+
+</robot>

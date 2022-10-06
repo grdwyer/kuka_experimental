@@ -1,9 +1,9 @@
-<library path="kuka_rsi_hw_interface">
+<library path="kuka_rsi_hw_interface_plugin">
   <class name="kuka_rsi_hw_interface/KukaHardwareInterface"
-         type="KukaHardwareInterface"
+         type="kuka_rsi_hw_interface::KukaHardwareInterface"
          base_class_type="hardware_interface::SystemInterface">
     <description>
-		ROS2 Control System Driver for kuka kr series robots using the robot sensor interface (RSI)
+		  ROS2 Control System Driver for kuka kr series robots using the robot sensor interface (RSI)
     </description>
   </class>
 </library>

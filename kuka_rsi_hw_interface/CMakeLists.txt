@@ -35,15 +35,16 @@ include_directories(
   ${TinyXML_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME}_plugin
+  SHARED
   src/kuka_hardware_interface.cpp
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME}_plugin
   ${Boost_LIBRARIES}
   ${TinyXML_LIBRARIES}
 )
-ament_target_dependencies(${PROJECT_NAME}
+ament_target_dependencies(${PROJECT_NAME}_plugin
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         hardware_interface
         angles
@@ -54,11 +55,13 @@ ament_target_dependencies(${PROJECT_NAME}
         sensor_msgs
         )
 
+target_compile_definitions(${PROJECT_NAME}_plugin PRIVATE "HARDWARE_INTERFACE_BUILDING_DLL")
+
 pluginlib_export_plugin_description_file(hardware_interface hardware_interface_plugin.xml)
 
 # Installation
 install(
-        TARGETS ${PROJECT_NAME}
+        TARGETS ${PROJECT_NAME}_plugin
         DESTINATION lib
 )
 
@@ -71,7 +74,7 @@ ament_export_include_directories(
         include
 )
 ament_export_libraries(
-        ${PROJECT_NAME}
+        ${PROJECT_NAME}_plugin
 )
 
 install(DIRECTORY config launch
