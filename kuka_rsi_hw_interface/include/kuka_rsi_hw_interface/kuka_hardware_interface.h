@@ -45,16 +45,24 @@
 #include <string>
 
 // ROS
-#include <ros/ros.h>
-#include <std_msgs/String.h>
+#include <rclcpp/macros.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/clock.hpp>
+#include <angles/angles.h>
+#include <std_msgs/msg/string.hpp>
 
 
-// ros_control
+// ros2_control hardware_interface
 #include <realtime_tools/realtime_publisher.h>
-#include <controller_manager/controller_manager.h>
-#include <hardware_interface/joint_command_interface.h>
-#include <hardware_interface/joint_state_interface.h>
-#include <hardware_interface/robot_hw.h>
+#include <rclcpp_lifecycle/state.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
+#include <hardware_interface/actuator.hpp>
+#include <hardware_interface/hardware_info.hpp>
+#include <hardware_interface/sensor.hpp>
+#include <hardware_interface/system_interface.hpp>
+#include <hardware_interface/types/hardware_interface_return_values.hpp>
+#include <hardware_interface/visibility_control.h>
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
 
 // Timers
 #include <chrono>
@@ -69,27 +77,18 @@
 namespace kuka_rsi_hw_interface
 {
 
-static const double RAD2DEG = 57.295779513082323;
-static const double DEG2RAD = 0.017453292519943295;
-
-class KukaHardwareInterface : public hardware_interface::RobotHW
+class KukaHardwareInterface : public hardware_interface::SystemInterface
 {
 
 private:
-
-  // ROS node handle
-  ros::NodeHandle nh_;
-
-  unsigned int n_dof_;
-
-  std::vector<std::string> joint_names_;
-
   std::vector<double> joint_position_;
   std::vector<double> joint_velocity_;
   std::vector<double> joint_effort_;
   std::vector<double> joint_position_command_;
   std::vector<double> joint_velocity_command_;
   std::vector<double> joint_effort_command_;
+
+  hardware_interface::HardwareInfo info_;
 
   // RSI
   RSIState rsi_state_;
@@ -98,7 +97,8 @@ private:
   std::vector<double> rsi_joint_position_corrections_;
   unsigned long long ipoc_;
 
-  std::unique_ptr<realtime_tools::RealtimePublisher<std_msgs::String> > rt_rsi_pub_;
+  rclcpp::Node::SharedPtr node_;
+  realtime_tools::RealtimePublisherSharedPtr<std_msgs::msg::String> rt_rsi_pub_;
 
   std::unique_ptr<UDPServer> server_;
   std::string local_host_;
@@ -109,24 +109,27 @@ private:
   std::string out_buffer_;
 
   // Timing
-  ros::Duration control_period_;
-  ros::Duration elapsed_time_;
+  rclcpp::Clock clock_;
   double loop_hz_;
 
-  // Interfaces
-  hardware_interface::JointStateInterface joint_state_interface_;
-  hardware_interface::PositionJointInterface position_joint_interface_;
-
 public:
+  RCLCPP_SHARED_PTR_DEFINITIONS(KukaHardwareInterface)
 
-  KukaHardwareInterface();
-  ~KukaHardwareInterface();
+  CallbackReturn on_init(const hardware_interface::HardwareInfo& system_info) final;
 
-  void start();
-  void configure();
-  bool read(const ros::Time time, const ros::Duration period);
-  bool write(const ros::Time time, const ros::Duration period);
+  std::vector<hardware_interface::StateInterface> export_state_interfaces() final;
 
+  std::vector<hardware_interface::CommandInterface> export_command_interfaces() final;
+
+  std::string get_name() const final
+  {
+      return info_.name;
+  }
+
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & previous_state);
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & previous_state);
+  hardware_interface::return_type read(const rclcpp::Time & time, const rclcpp::Duration & period) final;
+  hardware_interface::return_type write(const rclcpp::Time & time, const rclcpp::Duration & period) final;
 };
 
 } // namespace kuka_rsi_hw_interface

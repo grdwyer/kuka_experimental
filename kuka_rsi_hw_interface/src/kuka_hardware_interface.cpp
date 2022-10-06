@@ -45,57 +45,209 @@
 namespace kuka_rsi_hw_interface
 {
 
-KukaHardwareInterface::KukaHardwareInterface() :
-    joint_position_(6, 0.0), joint_velocity_(6, 0.0), joint_effort_(6, 0.0), joint_position_command_(6, 0.0), joint_velocity_command_(
-        6, 0.0), joint_effort_command_(6, 0.0), joint_names_(6), rsi_initial_joint_positions_(6, 0.0), rsi_joint_position_corrections_(
-        6, 0.0), ipoc_(0), n_dof_(6)
+using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+
+CallbackReturn KukaHardwareInterface::on_init(const hardware_interface::HardwareInfo &system_info)
 {
-  in_buffer_.resize(1024);
-  out_buffer_.resize(1024);
-  remote_host_.resize(1024);
-  remote_port_.resize(1024);
+    if (hardware_interface::SystemInterface::on_init(system_info) != CallbackReturn::SUCCESS)
+    {
+        return CallbackReturn::ERROR;
+    }
+    in_buffer_.resize(1024);
+    out_buffer_.resize(1024);
+    remote_host_.resize(1024);
+    remote_port_.resize(1024);
 
-  if (!nh_.getParam("controller_joint_names", joint_names_))
-  {
-    ROS_ERROR("Cannot find required parameter 'controller_joint_names' "
-      "on the parameter server.");
-    throw std::runtime_error("Cannot find required parameter "
-      "'controller_joint_names' on the parameter server.");
-  }
+    clock_ = rclcpp::Clock(RCL_STEADY_TIME);
+    info_ = system_info;
 
-  //Create ros_control interfaces
-  for (std::size_t i = 0; i < n_dof_; ++i)
-  {
-    // Create joint state interface for all joints
-    joint_state_interface_.registerHandle(
-        hardware_interface::JointStateHandle(joint_names_[i], &joint_position_[i], &joint_velocity_[i],
-                                             &joint_effort_[i]));
+    node_ = std::make_shared<rclcpp::Node>("rsi_node");
+    rclcpp::QoS qos(10);
+    qos.reliable().transient_local();
+    auto pub = node_->create_publisher<std_msgs::msg::String>("rsi_xml_doc", qos);    
+    
+    rt_rsi_pub_ = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::msg::String>>(pub);
 
-    // Create joint position control interface
-    position_joint_interface_.registerHandle(
-        hardware_interface::JointHandle(joint_state_interface_.getHandle(joint_names_[i]),
-                                        &joint_position_command_[i]));
-  }
+    // initialize
+    joint_position_.assign(system_info.joints.size(), 0.0);
+    joint_velocity_.assign(system_info.joints.size(), 0.0);
+    joint_effort_.assign(system_info.joints.size(), 0.0);
+    joint_position_command_.assign(system_info.joints.size(), 0.0); 
+    joint_velocity_command_.assign(system_info.joints.size(), 0.0);
+    joint_effort_command_.assign(system_info.joints.size(), 0.0); 
+    rsi_initial_joint_positions_.assign(system_info.joints.size(), 0.0); 
+    rsi_joint_position_corrections_.assign(system_info.joints.size(), 0.0);
+    
+    ipoc_ = 0;
 
-  // Register interfaces
-  registerInterface(&joint_state_interface_);
-  registerInterface(&position_joint_interface_);
+    for (const hardware_interface::ComponentInfo& joint : info_.joints)
+    {
+        if (joint.command_interfaces.size() != 1)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+                         "Joint '%s' has %ld command interfaces found. 1 expected.", joint.name.c_str(),
+                         joint.command_interfaces.size());
+            return CallbackReturn::ERROR;
+        }
 
-  ROS_INFO_STREAM_NAMED("hardware_interface", "Loaded kuka_rsi_hardware_interface");
+        if (joint.command_interfaces[0].name != hardware_interface::HW_IF_POSITION)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+                         "Joint '%s' have %s command interfaces found as first command interface. '%s' expected.",
+                         joint.name.c_str(), joint.command_interfaces[0].name.c_str(), hardware_interface::HW_IF_POSITION);
+            return CallbackReturn::ERROR;
+        }
+
+//        if (joint.command_interfaces[1].name != hardware_interface::HW_IF_VELOCITY)
+//        {
+//            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+//                         "Joint '%s' have %s command interfaces found as second command interface. '%s' expected.",
+//                         joint.name.c_str(), joint.command_interfaces[1].name.c_str(), hardware_interface::HW_IF_VELOCITY);
+//            return hardware_interface::return_type::ERROR;
+//        }
+
+        if (joint.state_interfaces.size() != 3)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"), "Joint '%s' has %ld state interface. 3 expected.",
+                         joint.name.c_str(), joint.state_interfaces.size());
+            return CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[0].name != hardware_interface::HW_IF_POSITION)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+                         "Joint '%s' have %s state interface as first state interface. '%s' expected.", joint.name.c_str(),
+                         joint.state_interfaces[0].name.c_str(), hardware_interface::HW_IF_POSITION);
+            return CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[1].name != hardware_interface::HW_IF_VELOCITY)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+                         "Joint '%s' have %s state interface as second state interface. '%s' expected.", joint.name.c_str(),
+                         joint.state_interfaces[1].name.c_str(), hardware_interface::HW_IF_POSITION);
+            return CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[2].name != hardware_interface::HW_IF_EFFORT)
+        {
+            RCLCPP_FATAL(rclcpp::get_logger("KukaHardwareInterface"),
+                         "Joint '%s' have %s state interface as third state interface. '%s' expected.", joint.name.c_str(),
+                         joint.state_interfaces[2].name.c_str(), hardware_interface::HW_IF_POSITION);
+            return CallbackReturn::ERROR;
+        }
+    }
+    return CallbackReturn::SUCCESS;
 }
 
-KukaHardwareInterface::~KukaHardwareInterface()
+std::vector<hardware_interface::StateInterface> KukaHardwareInterface::export_state_interfaces()
 {
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Setting up state interfaces");
+    std::vector<hardware_interface::StateInterface> state_interfaces;
+    for (size_t i = 0; i < info_.joints.size(); ++i)
+    {
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Setting joint: " << info_.joints[i].name << " at index " << i);
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+                info_.joints[i].name, hardware_interface::HW_IF_POSITION, &joint_position_[i]));
 
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+                info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &joint_velocity_[i]));
+
+    }
+
+
+    // for (auto& sensor : info_.sensors)
+    // {
+    //     for (uint j = 0; j < sensor.state_interfaces.size(); ++j)
+    //     {
+    //         state_interfaces.emplace_back(hardware_interface::StateInterface(sensor.name, sensor.state_interfaces[j].name,
+    //                                                                          &current_ext_torque_[j]));
+    //     }
+    // }
+
+    return state_interfaces;
 }
 
-bool KukaHardwareInterface::read(const ros::Time time, const ros::Duration period)
+std::vector<hardware_interface::CommandInterface> KukaHardwareInterface::export_command_interfaces()
+{
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Setting up command interfaces");
+    std::vector<hardware_interface::CommandInterface> command_interfaces;
+    for (size_t i = 0; i < info_.joints.size(); ++i)
+    {
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Setting joint: " << info_.joints[i].name << " at index " << i);
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+                info_.joints[i].name, hardware_interface::HW_IF_POSITION, &joint_position_command_[i]));
+
+        // TODO: replace with an effort interface and possibly wrench in the future
+//        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+//                info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &urcl_velocity_commands_[i]));
+    }
+
+    return command_interfaces;
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn KukaHardwareInterface::on_activate(const rclcpp_lifecycle::State &previous_state) {
+    RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "Starting ...please wait...");
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    // The robot's IP address.
+    std::string robot_ip = info_.hardware_parameters["robot_ip"];
+    int robot_port = std::stoi(info_.hardware_parameters["robot_port"]);
+
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Initializing driver using: \n\tIP: " << robot_ip << "\n\tPort: " << robot_port);
+      // Wait for connection from robot
+    server_.reset(new UDPServer(robot_ip, robot_port));
+
+    RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "Waiting for robot!");
+
+    int bytes = server_->recv(in_buffer_);
+
+    // Drop empty <rob> frame with RSI <= 2.3
+    if (bytes < 100)
+    {
+      bytes = server_->recv(in_buffer_);
+    }
+
+    rsi_state_ = RSIState(in_buffer_);
+    for (std::size_t i = 0; i < joint_position_.size(); ++i)
+    {
+      joint_position_[i] = angles::from_degrees(rsi_state_.positions[i]);
+      joint_position_command_[i] = joint_position_[i];
+      rsi_initial_joint_positions_[i] = rsi_state_.initial_positions[i];
+    }
+    ipoc_ = rsi_state_.ipoc;
+    out_buffer_ = RSICommand(rsi_joint_position_corrections_, ipoc_).xml_doc;
+    server_->send(out_buffer_);
+    // Set receive timeout to 1 second
+    server_->set_timeout(1000);
+    RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "Got connection from robot");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "instantiated driver");
+
+    return CallbackReturn::SUCCESS;
+    // TODO: add a check if this is successfull otherwise return an error code
+}
+
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn KukaHardwareInterface::on_deactivate(const rclcpp_lifecycle::State &previous_state) {
+    RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "Stopping ...please wait...");
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    // Need to implement an actual stop for the kuka
+
+    RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "System successfully stopped!");
+
+    return CallbackReturn::SUCCESS;
+}
+
+hardware_interface::return_type KukaHardwareInterface::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   in_buffer_.resize(1024);
 
   if (server_->recv(in_buffer_) == 0)
   {
-    return false;
+    return hardware_interface::return_type::ERROR;
   }
 
   if (rt_rsi_pub_->trylock()){
@@ -104,79 +256,30 @@ bool KukaHardwareInterface::read(const ros::Time time, const ros::Duration perio
   }
 
   rsi_state_ = RSIState(in_buffer_);
-  for (std::size_t i = 0; i < n_dof_; ++i)
+  for (std::size_t i = 0; i < joint_position_.size(); ++i)
   {
-    joint_position_[i] = DEG2RAD * rsi_state_.positions[i];
+    joint_position_[i] = angles::from_degrees(rsi_state_.positions[i]);
   }
   ipoc_ = rsi_state_.ipoc;
 
-  return true;
+  return hardware_interface::return_type::OK;
 }
 
-bool KukaHardwareInterface::write(const ros::Time time, const ros::Duration period)
+hardware_interface::return_type KukaHardwareInterface::write(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   out_buffer_.resize(1024);
 
-  for (std::size_t i = 0; i < n_dof_; ++i)
+  for (std::size_t i = 0; i < joint_position_command_.size(); ++i)
   {
-    rsi_joint_position_corrections_[i] = (RAD2DEG * joint_position_command_[i]) - rsi_initial_joint_positions_[i];
+    rsi_joint_position_corrections_[i] = angles::to_degrees(joint_position_command_[i]) - rsi_initial_joint_positions_[i];
   }
 
   out_buffer_ = RSICommand(rsi_joint_position_corrections_, ipoc_).xml_doc;
   server_->send(out_buffer_);
 
-  return true;
+  return hardware_interface::return_type::OK;
 }
 
-void KukaHardwareInterface::start()
-{
-  // Wait for connection from robot
-  server_.reset(new UDPServer(local_host_, local_port_));
 
-  ROS_INFO_STREAM_NAMED("kuka_hardware_interface", "Waiting for robot!");
-
-  int bytes = server_->recv(in_buffer_);
-
-  // Drop empty <rob> frame with RSI <= 2.3
-  if (bytes < 100)
-  {
-    bytes = server_->recv(in_buffer_);
-  }
-
-  rsi_state_ = RSIState(in_buffer_);
-  for (std::size_t i = 0; i < n_dof_; ++i)
-  {
-    joint_position_[i] = DEG2RAD * rsi_state_.positions[i];
-    joint_position_command_[i] = joint_position_[i];
-    rsi_initial_joint_positions_[i] = rsi_state_.initial_positions[i];
-  }
-  ipoc_ = rsi_state_.ipoc;
-  out_buffer_ = RSICommand(rsi_joint_position_corrections_, ipoc_).xml_doc;
-  server_->send(out_buffer_);
-  // Set receive timeout to 1 second
-  server_->set_timeout(1000);
-  ROS_INFO_STREAM_NAMED("kuka_hardware_interface", "Got connection from robot");
-
-}
-
-void KukaHardwareInterface::configure()
-{
-  const std::string param_addr = "rsi/listen_address";
-  const std::string param_port = "rsi/listen_port";
-
-  if (nh_.getParam(param_addr, local_host_) && nh_.getParam(param_port, local_port_))
-  {
-    ROS_INFO_STREAM_NAMED("kuka_hardware_interface",
-                          "Setting up RSI server on: (" << local_host_ << ", " << local_port_ << ")");
-  }
-  else
-  {
-    std::string msg = "Failed to get RSI listen address or listen port from"
-    " parameter server (looking for '" + param_addr + "' and '" + param_port + "')";
-    ROS_ERROR_STREAM(msg);
-    throw std::runtime_error(msg);
-  }
-  rt_rsi_pub_.reset(new realtime_tools::RealtimePublisher<std_msgs::String>(nh_, "rsi_xml_doc", 3));
-}
 
 } // namespace kuka_rsi_hardware_interface
