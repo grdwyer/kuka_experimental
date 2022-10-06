@@ -8,7 +8,7 @@ endif()
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD 14)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -35,16 +35,24 @@ include_directories(
   ${TinyXML_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}_plugin
-  SHARED
-  src/kuka_hardware_interface.cpp
+add_library(${PROJECT_NAME}
+        SHARED
+        src/kuka_hardware_interface.cpp
 )
 
-target_link_libraries(${PROJECT_NAME}_plugin
+target_include_directories(
+        ${PROJECT_NAME}  
+        PRIVATE
+        include
+        ${Boost_INCLUDE_DIRS}
+        ${TinyXML_INCLUDE_DIRS}
+)
+
+target_link_libraries(${PROJECT_NAME}
   ${Boost_LIBRARIES}
   ${TinyXML_LIBRARIES}
 )
-ament_target_dependencies(${PROJECT_NAME}_plugin
+ament_target_dependencies(${PROJECT_NAME}
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         hardware_interface
         angles
@@ -55,13 +63,13 @@ ament_target_dependencies(${PROJECT_NAME}_plugin
         sensor_msgs
         )
 
-target_compile_definitions(${PROJECT_NAME}_plugin PRIVATE "HARDWARE_INTERFACE_BUILDING_DLL")
+target_compile_definitions(${PROJECT_NAME} PRIVATE "HARDWARE_INTERFACE_BUILDING_DLL")
 
 pluginlib_export_plugin_description_file(hardware_interface hardware_interface_plugin.xml)
 
 # Installation
 install(
-        TARGETS ${PROJECT_NAME}_plugin
+        TARGETS ${PROJECT_NAME}
         DESTINATION lib
 )
 
@@ -74,7 +82,7 @@ ament_export_include_directories(
         include
 )
 ament_export_libraries(
-        ${PROJECT_NAME}_plugin
+        ${PROJECT_NAME}
 )
 
 install(DIRECTORY config launch

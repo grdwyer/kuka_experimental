@@ -133,4 +133,8 @@ public:
 };
 
 } // namespace kuka_rsi_hw_interface
+#include "pluginlib/class_list_macros.hpp"
+
+PLUGINLIB_EXPORT_CLASS(kuka_rsi_hw_interface::KukaHardwareInterface, hardware_interface::SystemInterface)
+
 #endif
