@@ -37,7 +37,9 @@
  * Author: Lars Tingelstad <lars.tingelstad@ntnu.no>
  */
 
-#include <kuka_rsi_hw_interface/kuka_hardware_interface.h>
+#include "kuka_rsi_hw_interface/kuka_hardware_interface.hpp"
+#include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 #include <stdexcept>
 
@@ -153,6 +155,9 @@ std::vector<hardware_interface::StateInterface> KukaHardwareInterface::export_st
 
         state_interfaces.emplace_back(hardware_interface::StateInterface(
                 info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &joint_velocity_[i]));
+        
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+                info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &joint_effort_[i]));
 
     }
 

@@ -53,26 +53,25 @@
 
 
 // ros2_control hardware_interface
-#include <realtime_tools/realtime_publisher.h>
-#include <rclcpp_lifecycle/state.hpp>
-#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
-#include <hardware_interface/actuator.hpp>
-#include <hardware_interface/hardware_info.hpp>
-#include <hardware_interface/sensor.hpp>
-#include <hardware_interface/system_interface.hpp>
-#include <hardware_interface/types/hardware_interface_return_values.hpp>
-#include <hardware_interface/visibility_control.h>
-#include <hardware_interface/types/hardware_interface_type_values.hpp>
+#include "realtime_tools/realtime_publisher.h"
+#include "hardware_interface/handle.hpp"
+#include "hardware_interface/hardware_info.hpp"
+#include "hardware_interface/system_interface.hpp"
+#include "hardware_interface/types/hardware_interface_return_values.hpp"
+#include "rclcpp/macros.hpp"
+#include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
+#include "rclcpp_lifecycle/state.hpp"
+#include "kuka_rsi_hw_interface/visibility_control.h"
 
 // Timers
 #include <chrono>
 
 // UDP server
-#include <kuka_rsi_hw_interface/udp_server.h>
+#include <kuka_rsi_hw_interface/udp_server.hpp>
 
 // RSI
-#include <kuka_rsi_hw_interface/rsi_state.h>
-#include <kuka_rsi_hw_interface/rsi_command.h>
+#include <kuka_rsi_hw_interface/rsi_state.hpp>
+#include <kuka_rsi_hw_interface/rsi_command.hpp>
 
 namespace kuka_rsi_hw_interface
 {
@@ -133,8 +132,5 @@ public:
 };
 
 } // namespace kuka_rsi_hw_interface
-#include "pluginlib/class_list_macros.hpp"
-
-PLUGINLIB_EXPORT_CLASS(kuka_rsi_hw_interface::KukaHardwareInterface, hardware_interface::SystemInterface)
 
 #endif
