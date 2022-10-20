@@ -113,3 +113,4 @@ Choose **controller manager ns** and **controller** and you should be able to mo
 
 * Note that T1-mode limits the robot movement velocity and is intended for testing purposes.
 
+## 5. External Axes

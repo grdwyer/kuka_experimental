@@ -198,12 +198,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn KukaHa
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // The robot's IP address.
-    std::string robot_ip = info_.hardware_parameters["robot_ip"];
-    int robot_port = std::stoi(info_.hardware_parameters["robot_port"]);
+    std::string listen_ip = info_.hardware_parameters["listen_ip"];
+    int listen_port = std::stoi(info_.hardware_parameters["listen_port"]);
 
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Initializing driver using: \n\tIP: " << robot_ip << "\n\tPort: " << robot_port);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("KukaHardwareInterface"), "Initializing driver using: \n\tIP: " << listen_ip << "\n\tPort: " << listen_port);
       // Wait for connection from robot
-    server_.reset(new UDPServer(robot_ip, robot_port));
+    server_.reset(new UDPServer(listen_ip, listen_port));
 
     RCLCPP_INFO(rclcpp::get_logger("KukaHardwareInterface"), "Waiting for robot!");
 
